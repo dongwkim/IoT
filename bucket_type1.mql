@@ -1,0 +1,32 @@
+db.type1.aggregate(
+[{
+    $match: {
+        "tag_group_nm": "group0"
+    }
+}, {
+    $project: {
+        "tag": 1,
+        "_id": 0
+    }
+}, {
+    $unwind: {
+        path: '$tag'
+    }
+}, {
+    $bucketAuto: {
+        groupBy: "$tag.ts",
+        buckets: 2000,
+        output: {
+            "ts": {
+                $first: "$tag.ts"
+            },
+            "first": {
+                $first: "$tag.val"
+            },
+            "avg": {
+                $avg: "$tag.val"
+            },
+        }
+    }
+}
+])

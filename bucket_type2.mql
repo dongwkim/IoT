@@ -1,0 +1,41 @@
+[{
+    $match: {
+        "tag_group_nm": "group0"
+    }
+}, {
+    $unwind: {
+        path: "$tag"
+    }
+}, {
+    $bucketAuto: {
+        groupBy: "$tag.ts",
+        buckets: 2000,
+        output: {
+            "tag_group_nm": {
+                $min: "$tag_group_nm"
+            },
+            "tag_nm": {
+                $min: "$tag_nm"
+            },
+            "ts": {
+                $first: "$tag.ts"
+            },
+            "first": {
+                $first: "$tag.val"
+            },
+            "avg": {
+                $avg: "$tag.val"
+            },
+        }
+    }
+}, {
+    $group: {
+        _id: "$tag_nm",
+        trend: {
+            $mergeObjects: {
+                "ts": "$ts",
+                "val": "$first"
+            }
+        }
+    }
+}]
