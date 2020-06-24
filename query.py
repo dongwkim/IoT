@@ -134,11 +134,11 @@ def query_agg_10min(coll,groupnm,tagnm,stime,etime):
                     }
                 }
             },
-            {
-                '$sort':{
-                    'trend.ts':1
-                }
-            }
+            # {
+            #     '$sort':{
+            #         'trend.ts':1
+            #     }
+            # }
         ]
     start = time.time()
     #print(pipeline)
@@ -290,7 +290,7 @@ def main():
     total_elapsed =0
     cnt =0
     endTime =datetime(2020, 5, 31, 23, 59, 0, tzinfo=timezone.utc)
-    startTime =datetime(2020, 5,18, 0, 0, 0, tzinfo=timezone.utc)
+    startTime =datetime(2020, 2,1, 0, 0, 0, tzinfo=timezone.utc)
 
     endTimeEpoch = endTime.timestamp()
     startnTimeEpoch = startTime.timestamp()

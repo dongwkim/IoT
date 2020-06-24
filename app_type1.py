@@ -17,6 +17,8 @@ import datetime
 import time
 import argparse
 import random
+import multiprocessing
+from datetime_truncate import truncate
 
 def temperature(low, high):
     #temp = randint(low,high)
@@ -42,7 +44,7 @@ def update_type1(coll,doc,bulkopt,request):
 
     '''
     coll.update_one(
-                     {"tag_group_nm": doc["group_nm"], "date": doc["ts"].strftime("%Y-%m-%d %H")},
+                     {"tag_group_nm": doc["group_nm"], "date": truncate(doc["ts"],'10_minute').strftime("%Y-%m-%d %H%M")},
                      {
                          "$min" : {"first": doc["ts"]},
                          "$max" : {"last": doc["ts"]},
@@ -91,11 +93,11 @@ def worker(uri,dbname,colname,group):
     start_time=datetime.datetime(2020,6,1,0,0,0)
     # 6*60*24 : 1day
     # 6*60*24*30 : 1Month
-    for i in range(6*60*24):
+    for i in range(6*60*24*60):
         # reduce time here
         start_time = start_time - datetime.timedelta(seconds=10)
-        if i%360 is 0: 
-            print("group# {}: {} days done".format(group,i/360))
+        if i%(360*24) is 0: 
+            print("group# {}: {} days done".format(group,i/360*24))
         for j in range(1):
             #group_nm = 'group' + str(j)
             # convert Thread# to group name
@@ -106,7 +108,7 @@ def worker(uri,dbname,colname,group):
                 data = { "ts": start_time,"group_nm": group_nm, "tag_nm":tag_nm, "temp": temp}
                 #type1: put every tags in tag array
                 #update_type1(coll,data,(i*3)+k,request)
-                update_type1(coll,data)
+                update_type1(coll,data,(i*3)+k,request)
                 #type2: grouping tags in tag array, TODO : Only can group single tag
                 # update_type2(doc,coll)
     # Finalyze commit
@@ -119,8 +121,7 @@ def main():
     parser.add_argument('-t', type=int, default=1, help="Thread Count")
     parser.add_argument('-y', type=int, default=1, help="Delay")
     parser.add_argument('-w', type=int, default=10000, help="Write Count")
-    parser.add_argument('-uri', type=str, default="mongodb+srv://admin:welcomemongo@doosan.r8dos.gcp.mongodb.net/<dbname>?retryWrites=true&w=majority",help="MongoDB uri")
-
+    parser.add_argument('-uri', type=str, default="mongodb+srv://admin:welcomemongo@trend.r8dos.mongodb.net/iot?retryWrites=true&w=1",help="MongoDB uri")
 
     args = parser.parse_args()
     uri = args.uri
@@ -132,15 +133,21 @@ def main():
 
     #client = MongoClient(uri)
 
-    ts = [Thread(name=f'Thread{i+1:02d}',target=worker, args=(uri,dbname,colname,i)) for i in range(tc)]
+    # ts = [Thread(name=f'Thread{i+1:02d}',target=worker, args=(uri,dbname,colname,i)) for i in range(tc)]
 
-    for t in ts:
-        t.start()
+    # for t in ts:
+    #     t.start()
 
-    time.sleep(1)
+    # time.sleep(1)
 
-    for t in ts:
-        t.join()
+    # for t in ts:
+    #     t.join()
+
+    jobs = []
+    for i in range(tc):
+        p = multiprocessing.Process(target=worker, args=(uri,dbname,colname,i,))
+        jobs.append(p)
+        p.start()
 
 if __name__ == '__main__':
     main()
