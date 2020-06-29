@@ -344,7 +344,7 @@ def main():
         for j in range(3):
             tag = 'tag' + str(j)
             #result.append(query(coll,groupnm=group,tagnm=tag))
-            if timediff < 3600 * 24 * 14 :
+            if timediff < 3600 * 24 * 17 :
                 result.append(query_agg(coll,groupnm=group,tagnm=tag,stime=startTime,etime=endTime))
             else:
                 result.append(query_agg_10min(coll,groupnm=group,tagnm=tag,stime=startTime,etime=endTime))
@@ -359,7 +359,7 @@ def main():
         print("{:10s} : elapsed :{:5f} : avg elapsed :{:5f}, detail{}".format(group,elapsed,avg_elapsed,[pair[0:2] for pair in result]))
         result = []
         output=[]
-        time.sleep(5)
+        time.sleep(1)
     """
     while True:
         group = 'group' + str(randint(0,10))
@@ -372,11 +372,11 @@ def main():
 if __name__ == '__main__':
 
     # 쿼리 결과 조회여부
-    showoutput = True
+    showoutput = False
     # bucketSize
     bsz=2880
 
-    startTime =datetime(2020, 5,1, 0, 0, 0, tzinfo=timezone.utc)
+    startTime =datetime(2020, 2,1, 0, 0, 0, tzinfo=timezone.utc)
     endTime =datetime(2020, 5, 31, 23, 59, 0, tzinfo=timezone.utc)
 
     main()

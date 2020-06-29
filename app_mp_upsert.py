@@ -11,30 +11,12 @@ import time
 import argparse
 import random
 import multiprocessing
+from datetime_truncate import truncate
 
 def temperature(low, high):
     #temp = randint(low,high)
     temp = random.random() * (high - low) + low
     return temp
-
-def update_type2X(coll,doc,bulkopt,request):
-    request.append(
-            UpdateOne( 
-                {"tag_group_nm": doc["group_nm"], "tag_nm":doc["tag_nm"], "date": doc["ts"].strftime("%Y-%m-%d %H")},
-                {
-                         "$min" : {"first": doc["ts"]},
-                         "$max" : {"last": doc["ts"]},
-                         #"$inc" : {"nsamples" : 1},
-                         "$addToSet": {"tag": {"ts":doc["ts"],"val":doc["temp"]}}
-                         #"$addToSet": {"tag": {doc["ts"]:doc["temp"]}}
-                 },
-                 upsert=True
-            )
-    )
-    if bulkopt % 64 == 0: 
-        #coll.bulk_write(request)
-        print(request)
-        request=[]
 
 def update_type1(coll,doc,bulkopt,request):
     coll.update_one(
@@ -47,31 +29,20 @@ def update_type1(coll,doc,bulkopt,request):
                      },
                      upsert=True
                 )
-def update_type2(coll,doc,bulkopt,request):
+def update_type3(coll,doc,bksz,request):
     coll.update_one(
-                     {"tag_group_nm": doc["group_nm"], "tag_nm":doc["tag_nm"], "date": doc["ts"].strftime("%Y-%m-%d %H")},
+                     {"tag_group_nm": doc["group_nm"], "tag_nm":doc["tag_nm"], "date": truncate(doc["ts"],str(bksz) + '_minute').strftime("%Y-%m-%d %H%M")},
                      {
                          "$min" : {"first": doc["ts"]},
                          "$max" : {"last": doc["ts"]},
-                         "$inc" : {"nsamples" : 1},
+                         "$inc" : {"nsamples" : 1, "total":doc["temp"]},
+                         "$set"  : {"val": doc["temp"]},
                          "$addToSet": {"tag": {"ts":doc["ts"],"val":doc["temp"]}}
                          #"$addToSet": {"tag": {doc["ts"]:doc["temp"]}}
                      },
                      upsert=True
                 )
 
-def update_type3(coll,doc,bulkopt,request):
-    coll.update_one(
-                     {"tag_group_nm": doc["group_nm"], "date": doc["ts"].strftime("%Y-%m-%d %H")},
-                     {
-                         "$min" : {"first": doc["ts"]},
-                         "$max" : {"last": doc["ts"]},
-                         "$inc" : {"nsamples" : 1},
-                         "$addToSet": {"tag": {"ts":doc["ts"],"val":doc["temp"]}}
-                         #"$addToSet": {"tag": {doc["ts"]:doc["temp"]}}
-                     },
-                     upsert=True
-                )
 '''
 def update_typeXX(coll,doc):
     doc = { 
@@ -99,7 +70,7 @@ def update_typeXX(coll,doc):
     else:
         coll.insert_one(doc)
 '''
-def worker(uri,dbname,colname,group):
+def worker(uri,dbname,colname,group,bksz):
     logging.debug('Run')
     
     client = MongoClient(uri)
@@ -113,7 +84,7 @@ def worker(uri,dbname,colname,group):
     start_time=datetime.datetime(2020,6,1,0,0,0)
     # 6*60*24 : 1day
     # 6*60*24*30 : 1Month
-    for i in range(6*60*24*29):
+    for i in range(6*60*24*31):
         # reduce time here
         start_time = start_time - datetime.timedelta(seconds=10)
         if i%(6*60*24) == 0: 
@@ -131,7 +102,7 @@ def worker(uri,dbname,colname,group):
                 #update_type1(coll,data)
                 #type2: grouping tags in tag array, TODO : Only can group single tag
                 #update_type2X(coll,data,(i*3)+k,request)
-                update_type2(coll,data,(i*3)+k,request)
+                update_type3(coll,data,bksz,request)
     # Finalyze commit
     #coll.bulk_write(request)
 
@@ -143,6 +114,7 @@ def main():
     parser.add_argument('-y', type=int, default=1, help="Delay")
     parser.add_argument('-w', type=int, default=10000, help="Write Count")
     parser.add_argument('-uri', type=str, default="mongodb+srv://admin:welcomemongo@trend.r8dos.mongodb.net/iot?retryWrites=true&w=1",help="MongoDB uri")
+    parser.add_argument('-b', type=int, default=10,help='Document Bucket Size(Min)')
 
 
     args = parser.parse_args()
@@ -152,6 +124,7 @@ def main():
     delay = args.y
     tc = args.t # Thread Count
     target_count = args.w
+    bksz = args.b
 
     #client = MongoClient(uri)
 
@@ -168,7 +141,7 @@ def main():
 
     jobs = []
     for i in range(tc):
-        p = multiprocessing.Process(target=worker, args=(uri,dbname,colname,i,))
+        p = multiprocessing.Process(target=worker, args=(uri,dbname,colname,i,bksz,))
         jobs.append(p)
         p.start()
 

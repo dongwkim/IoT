@@ -18,70 +18,20 @@ def temperature(low, high):
     temp = random.random() * (high - low) + low
     return temp
 
-def update_type1(coll,doc,bulkopt,request):
+def update_type4(coll,doc,bulkopt,request):
     coll.update_one(
-                     {"tag_group_nm": doc["group_nm"], "date": doc["ts"].strftime("%Y-%m-%d %H")},
+                     {"tag.group": doc["group_nm"], "tag.nm":doc["tag_nm"],"tag.unit":doc["unit"], "date": truncate(doc["ts"],'10_minute').strftime("%Y-%m-%d %H%M")},
                      {
-                         "$min" : {"first": doc["ts"]},
-                         "$max" : {"last": doc["ts"]},
-                         "$inc" : {"nsamples" : 1},
-                         "$addToSet": {"tag": {"ts":doc["ts"],"val":doc["temp"]}}
-                     },
-                     upsert=True
-                )
-def update_type2(coll,doc,bulkopt,request):
-    coll.update_one(
-                     {"tag_group_nm": doc["group_nm"], "tag_nm":doc["tag_nm"], "date": truncate(doc["ts"],'10_minute').strftime("%Y-%m-%d %H%M")},
-                     {
-                         "$min" : {"first": doc["ts"]},
-                         "$max" : {"last": doc["ts"]},
+                         "$min" : {"first": doc["ts"],"val.min":doc["temp"]},
+                         "$max" : {"last": doc["ts"],"val.max":doc["temp"]},
                          "$inc" : {"nsamples" : 1, "total":doc["temp"]},
-                         "$set"  : {"val": doc["temp"]},
-                         "$addToSet": {"tag": {"ts":doc["ts"],"val":doc["temp"]}}
+                         "$set"  : {"val.last": doc["temp"]},
+                         "$addToSet": {"trend": {"ts":doc["ts"],"val":doc["temp"]}}
                          #"$addToSet": {"tag": {doc["ts"]:doc["temp"]}}
                      },
                      upsert=True
                 )
 
-def update_type3(coll,doc,bulkopt,request):
-    coll.update_one(
-                     {"tag_group_nm": doc["group_nm"], "date": doc["ts"].strftime("%Y-%m-%d %H")},
-                     {
-                         "$min" : {"first": doc["ts"]},
-                         "$max" : {"last": doc["ts"]},
-                         "$inc" : {"nsamples" : 1},
-                         "$addToSet": {"tag": {"ts":doc["ts"],"val":doc["temp"]}}
-                         #"$addToSet": {"tag": {doc["ts"]:doc["temp"]}}
-                     },
-                     upsert=True
-                )
-'''
-def update_typeXX(coll,doc):
-    doc = { 
-                    "tag_group_nm": doc["group_nm"], 
-                    "unit" : "c", 
-                    "tag": [{"tag_nm" : doc["tag_nm"], "trend": [{str(doc["start_time"]):temp}]} ], 
-                    "date": doc["start_time"].strftime("%Y-%m-%d %H"),
-                    "first" : doc["start_time"]
-                    #"date": { "year": start_time.year, "month": start_time.month, "day": start_time.day, "hour": start_time.hour},
-           }
-    result = coll.find_one({"tag_group_nm": doc["tag_group_nm"], "date": doc["first"].strftime("%Y-%m-%d %H")},{"_id"})
-    #print(result)
-    if result is not None:
-        coll.update_one(
-                         {"tag_group_nm": doc["tag_group_nm"], "date": doc["first"].strftime("%Y-%m-%d %H")},
-                         {
-                             "$min" : {"first": doc["first"]},
-                             "$max" : {"last": doc["first"]},
-                             "$inc" : {"nsamples" : 1},
-                             "$addToSet": {"tag.$[elem].trend": doc["tag"][0]["trend"][0]}
-                         },
-                         upsert=False,
-                         array_filters=[{"elem.tag_nm":doc["tag"][0]["tag_nm"]}]
-                    )
-    else:
-        coll.insert_one(doc)
-'''
 def worker(uri,dbname,colname,group):
     logging.debug('Run')
     
@@ -108,13 +58,13 @@ def worker(uri,dbname,colname,group):
             for k in range(3):
                 tag_nm = 'tag' + str(k)
                 temp = temperature(30,50)
-                data = { "ts": start_time,"group_nm": group_nm, "tag_nm":tag_nm, "temp": temp}
+                data = { "ts": start_time,"group_nm": group_nm, "tag_nm":tag_nm, "temp": temp,"unit":'c'}
                 #type1: put every tags in tag array
                 #update_type1(coll,data,(i*3)+k,request)
                 #update_type1(coll,data)
                 #type2: grouping tags in tag array, TODO : Only can group single tag
                 #update_type2X(coll,data,(i*3)+k,request)
-                update_type2(coll,data,(i*3)+k,request)
+                update_type4(coll,data,(i*3)+k,request)
     # Finalyze commit
     #coll.bulk_write(request)
 
