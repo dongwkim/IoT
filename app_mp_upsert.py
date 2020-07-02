@@ -113,7 +113,7 @@ def main():
     parser.add_argument('-t', type=int, default=1, help="Thread Count")
     parser.add_argument('-y', type=int, default=1, help="Delay")
     parser.add_argument('-w', type=int, default=10000, help="Write Count")
-    parser.add_argument('-uri', type=str, default="mongodb+srv://admin:welcomemongo@trend.r8dos.mongodb.net/iot?retryWrites=true&w=1",help="MongoDB uri")
+    parser.add_argument('-uri', type=str, default="mongodb+srv://admin:xxxxxxxxx@trend.r8dos.mongodb.net/iot?retryWrites=true&w=1",help="MongoDB uri")
     parser.add_argument('-b', type=int, default=10,help='Document Bucket Size(Min)')
 
 
